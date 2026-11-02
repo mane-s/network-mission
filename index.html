@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Mission: Restore Connection</title>
+<style>
+:root{
+ --bg:#050d19;--panel:#102238;--cyan:#54e7ff;
+ --green:#76f7b0;--red:#ff7185;--yellow:#ffd166;
+ --white:#edf6ff;--muted:#a9bfd3;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--white);font-family:Arial,sans-serif}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid white;outline-offset:3px}
+.hidden{display:none!important}
+#intro,#ending{min-height:100vh;display:grid;place-items:center;text-align:center;padding:25px}
+#intro{background:radial-gradient(circle at center,#173b58,#050d19 70%)}
+.intro-card{max-width:850px}
+#game{
+ min-height:100vh;height:100vh;position:relative;overflow:hidden;
+ background:radial-gradient(ellipse at center,#123653 0%,#071321 65%,#030912 100%);
+}
+.topbar{
+ position:absolute;top:0;left:0;right:0;z-index:20;
+ display:flex;justify-content:space-between;align-items:center;
+ padding:16px 24px;background:linear-gradient(#06111fee,transparent);
+}
+.logo{font-weight:900;letter-spacing:2px;color:var(--cyan)}
+.stage-number{font-size:12px;color:var(--muted)}
+.progress{position:absolute;top:55px;left:24px;right:24px;height:5px;background:#20354a;border-radius:10px;overflow:hidden;z-index:20}
+.progress-fill{height:100%;background:var(--cyan);transition:width .4s}
+.question{
+ position:absolute;top:82px;left:24px;z-index:15;
+ width:min(390px,calc(100% - 48px));
+ background:#091a2bee;border:1px solid #36536d;border-radius:17px;
+ padding:17px;box-shadow:0 12px 40px #0008;backdrop-filter:blur(12px);
+}
+.eyebrow{font-size:11px;color:var(--cyan);font-weight:bold;letter-spacing:2px}
+h1{font-size:clamp(35px,6vw,70px);margin:12px 0}
+h2{font-size:22px;margin:9px 0}
+p{color:#c7d8e8;line-height:1.55;font-size:14px}
+.question p{margin:7px 0}
+#scene{
+ position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ overflow:auto;padding:140px 20px 110px;
+}
+#sceneContent{
+ width:min(1100px,95vw);height:100%;max-height:650px;
+ display:flex;align-items:center;justify-content:center;
+ position:relative;margin:auto;
+}
+#sceneContent svg{overflow:visible}
+.controls{
+ position:absolute;bottom:16px;left:24px;right:24px;z-index:20;
+ display:flex;align-items:center;justify-content:space-between;gap:15px;
+ pointer-events:none;
+}
+.controls>*{pointer-events:auto}
+.action-panel{
+ background:#091a2bee;border:1px solid #36536d;border-radius:15px;
+ padding:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+ max-width:min(750px,100%);backdrop-filter:blur(12px);
+}
+button{
+ border-radius:10px;padding:11px 15px;border:1px solid #45617b;
+ color:var(--white);background:#17334d;font-weight:bold;transition:.2s;
+}
+button:hover:not(:disabled){transform:translateY(-2px);border-color:var(--cyan)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.primary{background:var(--cyan);color:#052033;border:0}
+.selected{border-color:var(--yellow)!important;box-shadow:0 0 20px #ffd16666}
+.success{border-color:var(--green)!important;box-shadow:0 0 18px #76f7b044}
+.error{border-color:var(--red)!important}
+.feedback{max-width:370px;padding:11px 14px;border-radius:12px;background:#351c2a;border:1px solid #884256;color:white;font-size:13px;line-height:1.5}
+.feedback.good{background:#102f2a;border-color:#398a70}
+.device-grid{display:flex;justify-content:center;align-items:center;gap:clamp(15px,4vw,65px);position:relative}
+.device{
+ width:clamp(115px,15vw,175px);height:150px;border-radius:20px;
+ background:#102a42;border:2px solid #45627e;color:white;
+ display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;
+ font-size:13px;position:relative;z-index:2;
+}
+.device .emoji{font-size:clamp(40px,5vw,65px)}
+.device.connected{border-color:var(--green);box-shadow:0 0 30px #76f7b066}
+#connectionSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.connection-line{stroke:var(--cyan);stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 9px var(--cyan));stroke-dasharray:500;stroke-dashoffset:500;animation:drawLine .7s ease forwards}
+@keyframes drawLine{to{stroke-dashoffset:0}}
+.packet{
+ width:26px;height:22px;background:var(--yellow);border-radius:5px;
+ box-shadow:0 0 20px var(--yellow);position:absolute;
+ animation:packetTravel 2.5s linear infinite;
+}
+@keyframes packetTravel{0%{transform:translate(-200px,30px)}100%{transform:translate(200px,-30px)}}
+.graph{width:min(1000px,95vw);height:min(500px,55vh);position:relative}
+.graph svg{width:100%;height:100%}
+.node{cursor:pointer}
+.node circle{fill:#153550;stroke:#7ca6c8;stroke-width:3;transition:.2s}
+.node text{fill:white;text-anchor:middle;font-size:15px;pointer-events:none}
+.node.selected circle{fill:#70551b;stroke:var(--yellow);stroke-width:5}
+.node.visited circle{fill:#17614c;stroke:var(--green)}
+.edge{stroke:#42617d;stroke-width:6;fill:none;stroke-linecap:round}
+.edge.active{stroke:var(--cyan);filter:drop-shadow(0 0 8px var(--cyan))}
+.dhcp-board{width:min(760px,95vw);display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.dhcp-card{background:#142e47;border:1px solid #4b6984;border-radius:13px;padding:14px;display:flex;align-items:center;gap:12px;min-width:0}
+.dhcp-card strong{font-size:15px}
+.dhcp-card small{display:block;color:var(--muted);margin-top:5px;line-height:1.4}
+.move{display:flex;flex-direction:column;gap:5px;margin-left:auto}
+.move button{padding:5px 10px}
+.transport-layout{display:flex;align-items:center;justify-content:space-around;width:min(1000px,95vw);gap:20px}
+.transport-device{text-align:center;font-size:15px;color:var(--muted)}
+.transport-device span{display:block;font-size:clamp(55px,8vw,100px)}
+.packets{display:flex;gap:13px;flex-wrap:wrap;justify-content:center}
+.packet-card{width:70px;height:60px;border-radius:12px;background:var(--yellow);color:#362900;font-weight:bold;display:grid;place-items:center;font-size:17px;box-shadow:0 0 20px #ffd16655}
+.packet-card.lost{opacity:.15;border:2px dashed var(--red);background:transparent;color:white;box-shadow:none}
+.packet-card.recovered{animation:recover .8s ease}
+@keyframes recover{from{opacity:0;transform:translateY(-50px)}to{opacity:1;transform:translateY(0)}}
+.gateway-layout{display:flex;align-items:center;justify-content:center;gap:30px;flex-wrap:wrap}
+.address-card{padding:23px;background:#122d47;border:1px solid #53718d;border-radius:15px;text-align:center;min-width:190px}
+.address-card .ip{font-size:19px;color:var(--cyan);font-weight:bold;margin-top:12px}
+.gateway{height:190px;width:130px;border:6px solid var(--yellow);border-bottom:0;border-radius:75px 75px 0 0;display:grid;place-items:center;font-size:55px;transition:.5s}
+.gateway.open{border-color:var(--green);box-shadow:0 0 45px #76f7b055}
+.map-card{background:#102a42;border:2px solid #466680;border-radius:15px;padding:18px;text-align:center;min-width:145px}
+.map-card strong{display:block;color:var(--cyan);margin-top:8px}
+.rule-list{display:grid;gap:13px;width:min(700px,90vw)}
+.rule{display:flex;align-items:center;justify-content:space-between;gap:15px;background:#142e47;border:1px solid #4b6984;border-radius:12px;padding:15px}
+.rule button{min-width:95px}
+.end-title{color:var(--green);text-shadow:0 0 30px #76f7b0;font-size:clamp(30px,5vw,55px)}
+
+/* STAGE 3: DNS ORDERING BOARD */
+.dns-simulator{
+ width:min(1050px,96vw);display:grid;
+ grid-template-columns:1fr 1fr;gap:20px;align-items:stretch;
+}
+.dns-zone{
+ background:#091a2bee;border:1px solid #36536d;
+ border-radius:16px;padding:16px;min-height:280px;
+}
+.dns-zone h3{
+ color:var(--cyan);font-size:13px;letter-spacing:2px;margin:0 0 13px;
+}
+.dns-node-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dns-node{
+ min-height:95px;background:#153550;border:2px solid #54728c;
+ border-radius:13px;color:white;padding:10px;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+ transition:transform .3s,border-color .3s,background .3s;
+}
+.dns-node .dns-icon{font-size:27px}
+.dns-node small{color:var(--muted);font-size:10px}
+.dns-node:disabled{opacity:.35;cursor:default;transform:scale(.94)}
+.dns-node:hover:not(:disabled){border-color:var(--cyan);transform:translateY(-3px)}
+.dns-selected-list{display:flex;flex-direction:column;gap:9px;min-height:210px}
+.dns-step{
+ display:flex;align-items:center;gap:12px;padding:11px;
+ border:1px solid #398a70;background:#102f2a;border-radius:12px;
+ animation:moveIntoPath .35s ease;
+}
+.dns-step .step-number{font-size:12px;color:var(--green);font-weight:bold}
+.dns-step .step-icon{font-size:24px}
+.dns-step strong{font-size:13px}
+.dns-empty{
+ color:#7891a8;border:1px dashed #45617b;border-radius:12px;
+ padding:20px;text-align:center;font-size:12px;
+}
+@keyframes moveIntoPath{
+ from{opacity:0;transform:translateX(35px) scale(.9)}
+ to{opacity:1;transform:translateX(0) scale(1)}
+}
+
+/* STAGE 4: ROUTING SIMULATOR */
+.routing-simulator{
+ width:min(1100px,98vw);display:flex;flex-direction:column;gap:12px;
+}
+.routing-map{
+ width:100%;height:clamp(270px,42vh,410px);
+ background:#081a2b;border:1px solid #36536d;border-radius:17px;
+ overflow:hidden;position:relative;
+}
+.routing-map svg{width:100%;height:100%}
+.route-edge{stroke:#526d86;stroke-width:4;fill:none;opacity:.8}
+.route-edge.chosen{stroke:var(--cyan);stroke-width:7;filter:drop-shadow(0 0 7px var(--cyan))}
+.route-node{cursor:pointer}
+.route-node circle{fill:#153550;stroke:#8ba9c2;stroke-width:3;transition:.2s}
+.route-node text{fill:white;text-anchor:middle;font-size:13px;pointer-events:none}
+.route-node.selected circle{fill:#70551b;stroke:var(--yellow);stroke-width:5}
+.route-node.start circle,.route-node.end circle{fill:#17614c;stroke:var(--green)}
+.edge-label{
+ fill:#d7e8f7;text-anchor:middle;font-size:11px;
+ paint-order:stroke;stroke:#081a2b;stroke-width:5px;stroke-linejoin:round;
+}
+.route-legend{
+ display:flex;justify-content:center;gap:18px;flex-wrap:wrap;
+ color:var(--muted);font-size:11px;
+}
+.route-metrics{
+ display:grid;grid-template-columns:repeat(3,1fr);gap:9px;
+}
+.metric{
+ padding:10px;border-radius:11px;background:#102a42;border:1px solid #36536d;
+ text-align:center;
+}
+.metric strong{display:block;color:var(--cyan);font-size:17px}
+.metric small{font-size:10px;color:var(--muted)}
+.route-path{
+ background:#091a2bee;border:1px solid #36536d;border-radius:12px;
+ padding:10px;text-align:center;color:var(--yellow);font-size:12px;min-height:38px;
+}
+.route-node:hover circle{stroke:var(--cyan);stroke-width:5}
+
+/* DNS node styles */
+.dns-zone{min-width:0}
+.dns-node-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+@media(max-width:700px){
+ .topbar{padding:12px}.progress{left:12px;right:12px}
+ .question{top:72px;left:12px;width:calc(100% - 24px);padding:12px}
+ .question h2{font-size:18px}.question p{font-size:12px}
+ #scene{padding:190px 8px 130px}
+ .controls{left:9px;right:9px;bottom:8px;align-items:flex-end}
+ .action-panel{padding:8px;gap:6px;max-width:70%}
+ button{padding:9px 10px;font-size:11px}
+ .feedback{font-size:11px;max-width:30%}
+ .device-grid{gap:8px}.device{width:29vw;height:110px;font-size:10px}
+ .device .emoji{font-size:34px}
+ .dhcp-board{grid-template-columns:1fr;gap:7px}
+ .dhcp-card{padding:8px}.dhcp-card strong{font-size:12px}.dhcp-card small{font-size:10px}
+ .graph{height:330px}.node text{font-size:12px}
+ .transport-layout{gap:5px}.transport-device span{font-size:42px}
+ .packet-card{width:43px;height:40px;font-size:12px}
+ .gateway-layout{gap:8px}.address-card{min-width:90px;padding:10px;font-size:10px}
+ .address-card .ip{font-size:12px}.gateway{width:65px;height:120px}
+ .rule{padding:8px;font-size:11px}.rule button{min-width:65px}
+ .dns-simulator{grid-template-columns:1fr;gap:10px}
+ .dns-zone{padding:10px;min-height:unset}
+ .dns-zone h3{font-size:10px;margin-bottom:8px}
+ .dns-node{min-height:65px;padding:6px}
+ .dns-node .dns-icon{font-size:20px}
+ .dns-node strong{font-size:10px}
+ .dns-node small{font-size:9px}
+ .dns-selected-list{min-height:65px}
+ .dns-empty{padding:12px}
+ .routing-map{height:260px}
+ .routing-map svg{min-width:620px}
+ .routing-map{overflow-x:auto}
+ .route-metrics{gap:5px}
+ .metric{padding:7px}
+ .metric strong{font-size:14px}
+ .metric small{font-size:9px}
+}
+
+/* =====================================================
+   STAGE 3 DNS LAYOUT FIX
+   Question is placed above the DNS board.
+   The layout follows explicit grid rows, not DOM order.
+   ===================================================== */
+
+#game.dns-stage{
+ display:grid;
+ grid-template-columns:1fr;
+ grid-template-rows:60px 5px auto auto auto;
+ height:auto;
+ min-height:100vh;
+ overflow-x:hidden;
+ overflow-y:auto;
+ align-content:start;
+}
+
+#game.dns-stage .topbar{
+ position:relative;
+ top:auto;
+ left:auto;
+ right:auto;
+ grid-row:1;
+ min-height:60px;
+}
+
+#game.dns-stage .progress{
+ position:relative;
+ top:auto;
+ left:auto;
+ right:auto;
+ grid-row:2;
+ margin:0 24px;
+ width:auto;
+}
+
+#game.dns-stage .question{
+ position:relative;
+ top:auto;
+ left:auto;
+ grid-row:3;
+ width:calc(100% - 48px);
+ max-width:900px;
+ margin:12px auto 8px;
+ z-index:5;
+}
+
+#game.dns-stage #scene{
+ position:relative;
+ inset:auto;
+ grid-row:4;
+ display:block;
+ width:100%;
+ height:auto;
+ min-height:0;
+ overflow:visible;
+ padding:10px 20px 25px;
+}
+
+#game.dns-stage #sceneContent.dns-scene-content{
+ display:block;
+ position:relative;
+ width:min(1050px,100%);
+ height:auto;
+ min-height:0;
+ max-height:none;
+ margin:0 auto;
+ padding:0;
+}
+
+#game.dns-stage .dns-simulator{
+ position:relative;
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ width:100%;
+ gap:20px;
+ margin:0 auto;
+ align-items:start;
+}
+
+#game.dns-stage .dns-zone{
+ min-width:0;
+ min-height:280px;
+}
+
+#game.dns-stage .controls{
+ position:relative;
+ grid-row:5;
+ left:auto;
+ right:auto;
+ bottom:auto;
+ width:calc(100% - 48px);
+ margin:0 auto 15px;
+ align-items:center;
+}
+
+#game.dns-stage .action-panel{
+ max-width:100%;
+}
+
+@media(max-width:700px){
+ #game.dns-stage{
+  grid-template-rows:52px 5px auto auto auto;
+ }
+
+ #game.dns-stage .topbar{
+  min-height:52px;
+  padding:12px;
+ }
+
+ #game.dns-stage .progress{
+  margin:0 12px;
+ }
+
+ #game.dns-stage .question{
+  width:calc(100% - 24px);
+  margin:10px auto 8px;
+  padding:12px;
+ }
+
+ #game.dns-stage #scene{
+  padding:8px 10px 18px;
+ }
+
+ #game.dns-stage .dns-simulator{
+  grid-template-columns:1fr;
+  gap:12px;
+ }
+
+ #game.dns-stage .dns-zone{
+  min-height:unset;
+  padding:12px;
+ }
+
+ #game.dns-stage .dns-node{
+  min-height:70px;
+  padding:7px;
+ }
+
+ #game.dns-stage .dns-node .dns-icon{
+  font-size:22px;
+ }
+
+ #game.dns-stage .dns-node strong{
+  font-size:11px;
+ }
+
+ #game.dns-stage .dns-node small{
+  font-size:9px;
+ }
+
+ #game.dns-stage .dns-selected-list{
+  min-height:65px;
+ }
+
+ #game.dns-stage .dns-empty{
+  padding:12px;
+ }
+
+ #game.dns-stage .controls{
+  width:calc(100% - 18px);
+  margin:0 auto 10px;
+  flex-wrap:wrap;
+  align-items:flex-start;
+ }
+
+ #game.dns-stage .action-panel{
+  max-width:100%;
+ }
+
+ #game.dns-stage .feedback{
+  max-width:100%;
+ }
+}
+</style>
+</head>
+<body>
+
+<section id="intro">
+ <div class="intro-card">
+  <div class="eyebrow">EMERGENCY TRANSMISSION · MISSION CONTROL</div>
+  <h1>OPERATION<br><span style="color:var(--cyan)">RESTORE CONNECTION</span></h1>
+  <p style="font-size:18px">A critical communication link between a space station and Earth has failed.</p>
+  <p>Repair the network, investigate the failures, configure the systems and deliver the final message.</p>
+  <button class="primary" id="start">START MISSION →</button>
+  <p style="color:var(--muted)">9 interactive engineering missions · No countdown</p>
+ </div>
+</section>
+
+<section id="game" class="hidden">
+ <div class="topbar">
+  <div class="logo">NETWORK MISSION</div>
+  <div class="stage-number" id="stageNumber">STAGE 1 / 9</div>
+ </div>
+ <div class="progress"><div class="progress-fill" id="progress"></div></div>
+ <div id="scene"><div id="sceneContent"></div></div>
+ <div class="question">
+  <div class="eyebrow" id="topic"></div>
+  <h2 id="questionTitle"></h2>
+  <p id="questionText"></p>
+ </div>
+ <div class="controls">
+  <div class="action-panel" id="actionPanel"></div>
+  <div id="feedback"></div>
+ </div>
+</section>
+
+<section id="ending" class="hidden">
+ <div>
+  <div style="font-size:90px">🌍</div>
+  <div class="eyebrow">MISSION ACCOMPLISHED</div>
+  <h1 class="end-title">CONNECTION RESTORED</h1>
+  <p>All network systems are operational. The final message has reached Earth.</p>
+  <div style="font-size:clamp(24px,4vw,42px);color:var(--green)">"Hello, Earth. Can you hear us?"</div>
+  <p id="finalScore"></p>
+  <button class="primary" id="restart">RESTART MISSION ↻</button>
+ </div>
+</section>
+
+<script>
+const $=id=>document.getElementById(id);
+let stage=0,score=0,locked=false;
+const total=9;
+
+const content=[
+ ["01 · NETWORK SETUP","Connect the network","Select the devices in the correct connection order. The connection line will appear as each device is connected."],
+ ["02 · DHCP","Repair the DHCP exchange","Rearrange the four DHCP messages into the correct communication sequence. Submit when you are ready."],
+ ["03 · DNS INVESTIGATION","Trace the DNS request","The network nodes are mixed up. Select the devices involved in resolving the domain name, in the order the request travels. Each selected node will move into your route."],
+ ["04 · ROUTING","Build an efficient route","Build a route from the Space Station to Earth Gateway. Compare latency, congestion and bandwidth on each link. Select connected routers one by one. Your final route must meet the network performance requirements."],
+ ["05 · TCP RECOVERY","Restore missing data","A data segment has been lost. Choose the correct recovery action by interacting with the transmission controls."],
+ ["06 · NAT CONFIGURATION","Configure address translation","Match the private device address with the external address used by the gateway. Select the correct mapping."],
+ ["07 · NETWORK TROUBLESHOOTING","Investigate the failure","The station can reach its local router but cannot reach the remote server. Inspect the network and identify the faulty configuration."],
+ ["08 · FIREWALL CONTROL","Configure the firewall","The network is receiving different types of traffic. Set the firewall rules to protect the internal network while allowing the required service."],
+ ["09 · FINAL DELIVERY","Reconstruct the message","The message fragments arrived out of order. Arrange them into the original message and submit."]
+];
+
+function start(){
+ stage=0;score=0;
+ $("intro").classList.add("hidden");
+ $("ending").classList.add("hidden");
+ $("game").classList.remove("hidden");
+ showStage();
+}
+$("start").onclick=start;
+$("restart").onclick=start;
+
+function setup(){
+ $("game").classList.toggle("dns-stage",stage===2);
+ locked=false;
+ $("feedback").innerHTML="";
+ $("actionPanel").innerHTML="";
+ $("sceneContent").innerHTML="";
+ $("sceneContent").className="";
+ $("stageNumber").textContent=`STAGE ${stage+1} / ${total}`;
+ $("progress").style.width=(stage/total*100)+"%";
+ $("topic").textContent=content[stage][0];
+ $("questionTitle").textContent=content[stage][1];
+ $("questionText").textContent=content[stage][2];
+}
+function showStage(){
+ setup();
+ [renderConnect,renderDHCP,renderDNS,renderRoute,renderTransport,renderNAT,renderTroubleshoot,renderFirewall,renderAssembly][stage]();
+}
+function feedback(message,good=false){
+ $("feedback").innerHTML=`<div class="feedback ${good?"good":""}">${message}</div>`;
+}
+function complete(message,explanation){
+ if(locked)return;
+ locked=true;score++;
+ feedback(`<strong>✓ System restored!</strong><br>${message}<br><br>${explanation}`,true);
+ $("actionPanel").innerHTML='<button class="primary" id="next">NEXT STAGE →</button>';
+ $("next").onclick=advance;
+}
+function incorrect(message){
+ feedback(`<strong>Not quite!</strong><br>${message}<br><br>Review the system and try again.`);
+}
+function advance(){
+ if(!locked)return;
+ stage++;
+ if(stage>=total){
+  $("game").classList.add("hidden");
+  $("ending").classList.remove("hidden");
+ }else showStage();
+}
+function submitButton(id,callback){
+ $("actionPanel").innerHTML=`<button class="primary" id="${id}">SUBMIT CONFIGURATION</button>`;
+ $(id).onclick=callback;
+}
+
+/* STAGE 1: CONNECT DEVICES WITH VISIBLE LINES */
+function renderConnect(){
+ const items=[
+  {id:"station",name:"SPACE STATION",emoji:"🛰️"},
+  {id:"router",name:"ROUTER",emoji:"📡"},
+  {id:"server",name:"SERVER",emoji:"🖥️"}
+ ];
+ const shuffled=[...items].sort(()=>Math.random()-.5);
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative">
+  <svg id="connectionSvg"></svg>
+  <div class="device-grid" id="devices">
+   ${shuffled.map(d=>`<button class="device" data-id="${d.id}"><span class="emoji">${d.emoji}</span>${d.name}</button>`).join("")}
+  </div>
+ </div>`;
+ let sequence=[];
+ function drawLine(a,b){
+  const svg=$("connectionSvg");
+  const container=svg.getBoundingClientRect();
+  const first=document.querySelector(`[data-id="${a}"]`).getBoundingClientRect();
+  const second=document.querySelector(`[data-id="${b}"]`).getBoundingClientRect();
+  const x1=first.left+first.width/2-container.left;
+  const y1=first.top+first.height/2-container.top;
+  const x2=second.left+second.width/2-container.left;
+  const y2=second.top+second.height/2-container.top;
+  const ns="http://www.w3.org/2000/svg";
+  const line=document.createElementNS(ns,"line");
+  line.setAttribute("x1",x1);line.setAttribute("y1",y1);
+  line.setAttribute("x2",x2);line.setAttribute("y2",y2);
+  line.setAttribute("class","connection-line");
+  svg.appendChild(line);
+ }
+ $("devices").querySelectorAll(".device").forEach(btn=>{
+  btn.onclick=()=>{
+   if(locked)return;
+   const expected=["station","router","server"][sequence.length];
+   if(btn.dataset.id!==expected){
+    btn.classList.add("error");
+    incorrect("This device cannot be the next step in the connection path. Consider the role of each network device.");
+    setTimeout(()=>btn.classList.remove("error"),700);
+    return;
+   }
+   const previous=sequence[sequence.length-1];
+   sequence.push(btn.dataset.id);
+   btn.classList.add("connected");btn.disabled=true;
+   if(previous)drawLine(previous,btn.dataset.id);
+   if(sequence.length===3){
+    complete("All three devices are connected.","The router forwards packets between networks. The server can now communicate with the space station through the router.");
+   }else{
+    feedback("Connection established. Continue building the network.",true);
+   }
+  };
+ });
+}
+
+/* STAGE 2: DHCP ORDERING */
+function renderDHCP(){
+ const names=[
+  ["Discover","The client searches for a DHCP server."],
+  ["Offer","The server offers an available IP address."],
+  ["Request","The client requests the offered address."],
+  ["Acknowledge","The server confirms the configuration."]
+ ];
+ let order=[2,0,3,1];
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px">
+  <div style="font-size:clamp(45px,7vw,85px)">💻 <span style="color:var(--cyan)">⇄</span> 🗄️</div>
+  <div style="color:var(--muted);letter-spacing:3px">CLIENT ↔ DHCP SERVER</div>
+  <div class="dhcp-board" id="dhcpList"></div>
+ </div>`;
+ function draw(){
+  $("dhcpList").innerHTML=order.map((id,pos)=>`
+   <div class="dhcp-card" draggable="true" data-pos="${pos}">
+    <span style="color:var(--cyan);font-weight:bold">0${pos+1}</span>
+    <div><strong>${names[id][0]}</strong><small>${names[id][1]}</small></div>
+    <div class="move"><button data-up="${pos}" ${pos===0?"disabled":""}>↑</button><button data-down="${pos}" ${pos===3?"disabled":""}>↓</button></div>
+   </div>`).join("");
+  $("dhcpList").querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>swap(+b.dataset.up,+b.dataset.up-1));
+  $("dhcpList").querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>swap(+b.dataset.down,+b.dataset.down+1));
+  let from=null;
+  $("dhcpList").querySelectorAll(".dhcp-card").forEach(card=>{
+   card.ondragstart=()=>{from=+card.dataset.pos;card.style.opacity=".4"};
+   card.ondragend=()=>card.style.opacity="1";
+   card.ondragover=e=>e.preventDefault();
+   card.ondrop=e=>{
+    e.preventDefault();let to=+card.dataset.pos;
+    if(from===null||from===to)return;
+    const moved=order.splice(from,1)[0];order.splice(to,0,moved);from=null;draw();
+   };
+  });
+ }
+ function swap(a,b){
+  if(b<0||b>=4)return;
+  [order[a],order[b]]=[order[b],order[a]];draw();
+ }
+ submitButton("submitDHCP",()=>{
+  if(order.join(",")==="0,1,2,3")complete("DHCP exchange repaired.","The DORA process is Discover, Offer, Request and Acknowledge. DHCP automatically provides network configuration.");
+  else incorrect("The messages are not in the correct exchange order. Think about which message begins the process and which confirms the address.");
+ });
+ draw();
+}
+
+/* STAGE 3: DNS NODES MOVE INTO A NEW SEQUENCE */
+function renderDNS(){
+ const nodes=[
+  {id:"client",name:"CLIENT",icon:"💻",detail:"User device"},
+  {id:"router",name:"ROUTER",icon:"📡",detail:"Network gateway"},
+  {id:"dns",name:"DNS SERVER",icon:"🌐",detail:"Name resolution"},
+  {id:"web",name:"WEB SERVER",icon:"🖥️",detail:"Website host"},
+  {id:"dhcp",name:"DHCP SERVER",icon:"📋",detail:"IP configuration"},
+  {id:"database",name:"DATABASE",icon:"🗄️",detail:"Stored records"}
+ ];
+ const shuffled=[nodes[4],nodes[2],nodes[5],nodes[0],nodes[3],nodes[1]];
+ let selected=[];
+ const expected=["client","router","dns","web"];
+ $("sceneContent").className="dns-scene-content";
+ $("sceneContent").innerHTML=`
+ <div class="dns-simulator">
+  <div class="dns-zone">
+   <h3>AVAILABLE NETWORK NODES</h3>
+   <div class="dns-node-list" id="dnsAvailable">
+    ${shuffled.map(n=>`
+     <button class="dns-node" data-dns="${n.id}">
+      <span class="dns-icon">${n.icon}</span>
+      <strong>${n.name}</strong>
+      <small>${n.detail}</small>
+     </button>`).join("")}
+   </div>
+  </div>
+  <div class="dns-zone">
+   <h3>YOUR DNS REQUEST PATH</h3>
+   <div class="dns-selected-list" id="dnsSelected">
+    <div class="dns-empty">Your selected nodes will appear here in the order you choose.</div>
+   </div>
+   <div id="dnsCount" style="margin-top:12px;color:var(--muted);font-size:11px">0 nodes selected</div>
+  </div>
+ </div>`;
+ function drawSelected(){
+  const area=$("dnsSelected");
+  if(selected.length===0){
+   area.innerHTML='<div class="dns-empty">Your route is empty. Select a node to begin.</div>';
+  }else{
+   area.innerHTML=selected.map((id,i)=>{
+    const n=nodes.find(x=>x.id===id);
+    return `<div class="dns-step">
+      <span class="step-number">STEP 0${i+1}</span>
+      <span class="step-icon">${n.icon}</span>
+      <strong>${n.name}</strong>
+    </div>`;
+   }).join("");
+  }
+  $("dnsCount").textContent=`${selected.length} nodes selected`;
+ }
+ function selectNode(id,button){
+  if(locked||selected.includes(id))return;
+  selected.push(id);
+  button.disabled=true;
+  button.style.opacity=".3";
+  drawSelected();
+  feedback("Node added to your DNS request path. Continue investigating the network.");
+ }
+ $("dnsAvailable").querySelectorAll("[data-dns]").forEach(button=>{
+  button.onclick=()=>selectNode(button.dataset.dns,button);
+ });
+ submitButton("submitDNS",()=>{
+  if(selected.join(",")===expected.join(",")){
+   complete("The DNS request reached the correct destination.","DNS translates a domain name into an IP address. The client sends a request through the network to a DNS resolver, which provides the address needed to contact the website.");
+  }else{
+   incorrect("The selected nodes do not form a valid DNS resolution path. Check which devices participate in forwarding the request and which systems provide network configuration or store other data. You can still change your selection by pressing RESET PATH.");
+  }
+ });
+ const reset=document.createElement("button");
+ reset.textContent="RESET PATH";
+ reset.onclick=()=>{
+  if(locked)return;
+  selected=[];
+  $("dnsAvailable").querySelectorAll("[data-dns]").forEach(b=>{
+   b.disabled=false;b.style.opacity="1";
+  });
+  drawSelected();
+  $("feedback").innerHTML="";
+ };
+ $("actionPanel").appendChild(reset);
+ drawSelected();
+}
+
+/* STAGE 4: MULTI-ROUTER NETWORK PERFORMANCE SIMULATOR */
+function renderRoute(){
+ const nodes=[
+  {id:"station",x:65,y:190,label:"STATION",type:"start"},
+  {id:"r1",x:245,y:65,label:"R1"},
+  {id:"r2",x:245,y:190,label:"R2"},
+  {id:"r3",x:245,y:320,label:"R3"},
+  {id:"r4",x:475,y:65,label:"R4"},
+  {id:"r5",x:475,y:190,label:"R5"},
+  {id:"r6",x:475,y:320,label:"R6"},
+  {id:"r7",x:690,y:120,label:"R7"},
+  {id:"r8",x:690,y:270,label:"R8"},
+  {id:"earth",x:875,y:190,label:"EARTH",type:"end"}
+ ];
+ const edges=[
+  {a:"station",b:"r1",lat:12,con:88,bw:20},
+  {a:"station",b:"r2",lat:22,con:20,bw:100},
+  {a:"station",b:"r3",lat:35,con:15,bw:80},
+  {a:"r1",b:"r4",lat:10,con:90,bw:15},
+  {a:"r1",b:"r5",lat:28,con:35,bw:100},
+  {a:"r2",b:"r5",lat:18,con:25,bw:120},
+  {a:"r2",b:"r6",lat:30,con:10,bw:90},
+  {a:"r3",b:"r5",lat:15,con:40,bw:100},
+  {a:"r3",b:"r6",lat:20,con:18,bw:110},
+  {a:"r4",b:"r7",lat:12,con:92,bw:15},
+  {a:"r4",b:"r8",lat:24,con:30,bw:100},
+  {a:"r5",b:"r7",lat:20,con:25,bw:100},
+  {a:"r5",b:"r8",lat:16,con:20,bw:120},
+  {a:"r6",b:"r8",lat:19,con:15,bw:100},
+  {a:"r7",b:"earth",lat:10,con:85,bw:20},
+  {a:"r8",b:"earth",lat:17,con:12,bw:120}
+ ];
+ const byId=id=>nodes.find(n=>n.id===id);
+ const connected=(a,b)=>edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+ let path=["station"];
+ let chosenEdges=[];
+ let totalLatency=0;
+ let totalCongestion=0;
+ let minimumBandwidth=Infinity;
+ $("sceneContent").innerHTML=`
+ <div class="routing-simulator">
+  <div class="routing-map">
+   <svg viewBox="0 0 940 390" id="routingSvg">
+    ${edges.map(e=>{
+     const a=byId(e.a),b=byId(e.b);
+     const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+     return `<g>
+      <line class="route-edge" data-edge="${e.a}-${e.b}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>
+      <text class="edge-label" x="${mx}" y="${my-9}">${e.lat}ms · ${e.con}% · ${e.bw}M</text>
+     </g>`;
+    }).join("")}
+    ${nodes.map(n=>`
+     <g class="route-node ${n.type||""}" data-router="${n.id}" transform="translate(${n.x} ${n.y})">
+      <circle r="${n.type?37:29}"/>
+      <text y="5">${n.label}</text>
+     </g>`).join("")}
+   </svg>
+  </div>
+  <div class="route-legend">
+   <span>⏱ Latency (ms)</span><span>⚠ Congestion (%)</span><span>↕ Bandwidth (Mbps)</span>
+  </div>
+  <div class="route-path" id="routePath">CURRENT PATH: SPACE STATION</div>
+  <div class="route-metrics">
+   <div class="metric"><strong id="latencyMetric">0 ms</strong><small>TOTAL LATENCY</small></div>
+   <div class="metric"><strong id="congestionMetric">0%</strong><small>AVERAGE CONGESTION</small></div>
+   <div class="metric"><strong id="bandwidthMetric">—</strong><small>MINIMUM BANDWIDTH</small></div>
+  </div>
+  <div style="text-align:center;color:var(--muted);font-size:11px">
+   Select connected routers one by one. Avoid overloaded links and maintain sufficient bandwidth.
+  </div>
+ </div>`;
+ function edgeKey(a,b){return `${a}-${b}`;}
+ function updateDisplay(){
+  $("routePath").textContent="CURRENT PATH: "+path.map(id=>byId(id).label).join(" → ");
+  $("latencyMetric").textContent=totalLatency+" ms";
+  $("congestionMetric").textContent=(chosenEdges.length?(totalCongestion/chosenEdges.length).toFixed(0):0)+"%";
+  $("bandwidthMetric").textContent=chosenEdges.length?minimumBandwidth+" Mbps":"—";
+  document.querySelectorAll(".route-node").forEach(n=>{
+   n.classList.toggle("selected",path.includes(n.dataset.router));
+  });
+  document.querySelectorAll(".route-edge").forEach(line=>{
+   const key=line.dataset.edge;
+   line.classList.toggle("chosen",chosenEdges.some(e=>edgeKey(e.a,e.b)===key||edgeKey(e.b,e.a)===key));
+  });
+ }
+ function addNode(id){
+  if(locked)return;
+  const current=path[path.length-1];
+  if(path.includes(id)){
+   feedback("This router is already part of your route. Choose a new connected node.");
+   return;
+  }
+  const edge=connected(current,id);
+  if(!edge){
+   feedback("There is no direct network connection between the selected routers. You must follow an existing link.");
+   return;
+  }
+  path.push(id);chosenEdges.push(edge);
+  totalLatency+=edge.lat;totalCongestion+=edge.con;
+  minimumBandwidth=Math.min(minimumBandwidth,edge.bw);
+  updateDisplay();
+  if(id==="earth"){
+   feedback("Earth Gateway reached. Review your route performance and submit it for evaluation.");
+  }else{
+   feedback("Router added. Check the link metrics before choosing your next connection.");
+  }
+ }
+ document.querySelectorAll("[data-router]").forEach(node=>{
+  node.onclick=()=>addNode(node.dataset.router);
+ });
+ submitButton("submitRoute",()=>{
+  if(path[path.length-1]!=="earth"){
+   incorrect("Your route has not reached Earth Gateway. Continue selecting connected routers.");
+   return;
+  }
+  const avgCongestion=totalCongestion/chosenEdges.length;
+  const meetsLatency=totalLatency<=90;
+  const meetsCongestion=avgCongestion<=35;
+  const meetsBandwidth=minimumBandwidth>=80;
+  if(meetsLatency&&meetsCongestion&&meetsBandwidth){
+   complete("An efficient route to Earth Gateway has been established.",
+    `Your route has ${totalLatency} ms total latency, ${avgCongestion.toFixed(0)}% average congestion and a minimum bandwidth of ${minimumBandwidth} Mbps. The network meets all three performance requirements.`);
+  }else{
+   const problems=[];
+   if(!meetsLatency)problems.push("total latency is above the 90 ms limit");
+   if(!meetsCongestion)problems.push("average congestion is above the 35% limit");
+   if(!meetsBandwidth)problems.push("minimum bandwidth is below 80 Mbps");
+   incorrect("Your route reaches Earth, but it does not meet the performance requirements: "+problems.join("; ")+". Try a different combination of links.");
+  }
+ });
+ const reset=document.createElement("button");
+ reset.textContent="CLEAR ROUTE";
+ reset.onclick=()=>{
+  if(locked)return;
+  path=["station"];chosenEdges=[];totalLatency=0;
+  totalCongestion=0;minimumBandwidth=Infinity;
+  updateDisplay();$("feedback").innerHTML="";
+ };
+ $("actionPanel").appendChild(reset);
+ updateDisplay();
+}
+
+/* STAGE 5: TCP RECOVERY INTERACTION */
+function renderTransport(){
+ $("sceneContent").innerHTML=`
+ <div style="width:100%">
+  <div class="transport-layout">
+   <div class="transport-device"><span>🛰️</span>SPACE STATION</div>
+   <div style="text-align:center;flex:1">
+    <div class="packets" id="packetRow">
+     <div class="packet-card">01</div><div class="packet-card lost" id="lostPacket">02</div><div class="packet-card">03</div>
+    </div>
+    <div id="packetStatus" style="color:var(--red);margin-top:25px;font-size:13px">SEGMENT 02 · NOT RECEIVED</div>
+   </div>
+   <div class="transport-device"><span>🖥️</span>SERVER</div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:12px;margin-top:35px;flex-wrap:wrap">
+   <button id="requestAgain">REQUEST MISSING SEGMENT</button>
+   <button id="sendAgain">RETRANSMIT SEGMENT</button>
+  </div>
+ </div>`;
+ let requested=false,retransmitted=false;
+ $("requestAgain").onclick=()=>{
+  requested=true;$("packetStatus").textContent="RECEIVER REQUESTED THE MISSING SEGMENT";
+  $("packetStatus").style.color="var(--yellow)";
+  $("requestAgain").classList.add("selected");
+ };
+ $("sendAgain").onclick=()=>{
+  if(!requested){incorrect("The receiver has not requested the missing segment yet.");return}
+  retransmitted=true;$("lostPacket").classList.remove("lost");$("lostPacket").classList.add("recovered");
+  $("packetStatus").textContent="SEGMENT 02 RECEIVED ✓";$("packetStatus").style.color="var(--green)";
+  $("sendAgain").classList.add("selected");
+ };
+ submitButton("submitTCP",()=>{
+  if(requested&&retransmitted)complete("The missing segment was recovered.","TCP supports reliable and ordered delivery. It can detect missing data and retransmit it.");
+  else incorrect("The transfer is not complete. Check the receiver's status and the missing segment.");
+ });
+}
+
+/* STAGE 6: NAT ADDRESS MAPPING */
+function renderNAT(){
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;text-align:center">
+  <div class="gateway-layout">
+   <div class="address-card"><div style="font-size:55px">💻</div><strong>INTERNAL DEVICE</strong><div class="ip">192.168.1.10</div></div>
+   <div><div class="gateway" id="gateway">🔒</div><div style="color:var(--yellow);margin-top:8px">NAT GATEWAY</div></div>
+   <div class="address-card"><div style="font-size:55px">🌍</div><strong>EXTERNAL NETWORK</strong><div class="ip" id="externalIP">UNKNOWN</div></div>
+  </div>
+  <div style="margin-top:25px;color:var(--muted)">Select the address mapping to configure the gateway.</div>
+  <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:15px">
+   <button data-map="192.168.1.10">192.168.1.10 → 192.168.1.10</button>
+   <button data-map="203.0.113.5">192.168.1.10 → 203.0.113.5</button>
+   <button data-map="203.0.113.8">192.168.1.10 → 203.0.113.8</button>
+  </div>
+ </div>`;
+ let selected="";
+ document.querySelectorAll("[data-map]").forEach(b=>b.onclick=()=>{
+  selected=b.dataset.map;
+  document.querySelectorAll("[data-map]").forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");
+ });
+ submitButton("submitNAT",()=>{
+  if(selected==="203.0.113.5"){
+   $("gateway").classList.add("open");$("gateway").textContent="🔓";
+   $("externalIP").textContent=selected;$("externalIP").style.color="var(--green)";
+   complete("The NAT mapping has been configured.","NAT translates private address information for communication with external networks. The internal device can now communicate through the gateway.");
+  }else incorrect("This mapping does not provide the required external address translation. Review the difference between private and public addressing.");
+ });
+}
+
+/* STAGE 7: TROUBLESHOOTING */
+function renderTroubleshoot(){
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;text-align:center">
+  <div style="font-size:clamp(45px,7vw,85px)">🛰️ ─── 📡 ─── 🌐 ─── 🖥️</div>
+  <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin-top:30px">
+   <div class="map-card"><div style="font-size:35px">🛰️</div>Station<strong>ONLINE</strong></div>
+   <div class="map-card"><div style="font-size:35px">📡</div>Router<strong>ONLINE</strong></div>
+   <div class="map-card"><div style="font-size:35px">🌐</div>DNS<strong id="dnsHealth">ONLINE</strong></div>
+   <div class="map-card"><div style="font-size:35px">🖥️</div>Web server<strong>ONLINE</strong></div>
+  </div>
+  <div style="margin-top:25px;color:var(--yellow)">Diagnostic log: Local gateway responds. Domain lookup fails. Direct IP connection works.</div>
+  <div style="margin-top:15px;color:var(--muted)">Select the component you want to inspect.</div>
+  <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+   <button data-diagnose="router">INSPECT ROUTER</button>
+   <button data-diagnose="dns">INSPECT DNS</button>
+   <button data-diagnose="server">INSPECT WEB SERVER</button>
+  </div>
+  <div id="diagnostic" style="margin-top:15px;color:var(--cyan);min-height:25px"></div>
+ </div>`;
+ let inspected="";
+ document.querySelectorAll("[data-diagnose]").forEach(b=>b.onclick=()=>{
+  inspected=b.dataset.diagnose;
+  $("diagnostic").textContent=inspected==="dns"?"DNS diagnostic: Service is not responding.":inspected==="router"?"Router diagnostic: Gateway responds normally.":"Web server diagnostic: Direct IP connection succeeds.";
+  document.querySelectorAll("[data-diagnose]").forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");
+ });
+ submitButton("submitDiagnosis",()=>{
+  if(inspected==="dns")complete("The fault has been isolated.","When a direct IP connection works but a domain name does not resolve, DNS is a likely point of failure. Troubleshooting compares different network services to isolate the issue.");
+  else incorrect("This component does not match the diagnostic evidence. Compare the successful and failed tests.");
+ });
+}
+
+/* STAGE 8: FIREWALL RULE CONFIGURATION */
+function renderFirewall(){
+ const rules=[
+  {id:"https",label:"HTTPS web traffic",detail:"Required for secure access to the mission portal.",correct:"ALLOW"},
+  {id:"unknown",label:"Unknown incoming connection",detail:"Unrequested traffic from an unknown external host.",correct:"BLOCK"},
+  {id:"dns",label:"DNS requests",detail:"Required to resolve domain names.",correct:"ALLOW"},
+  {id:"malicious",label:"Suspicious remote access attempt",detail:"Unexpected attempt to access an internal device.",correct:"BLOCK"}
+ ];
+ let choices={};
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;display:flex;justify-content:center">
+  <div class="rule-list" id="firewallRules">
+   ${rules.map(r=>`
+    <div class="rule">
+     <div><strong>${r.label}</strong><div style="color:var(--muted);font-size:12px;margin-top:5px">${r.detail}</div></div>
+     <div style="display:flex;gap:5px"><button data-rule="${r.id}" data-value="ALLOW">ALLOW</button><button data-rule="${r.id}" data-value="BLOCK">BLOCK</button></div>
+    </div>`).join("")}
+  </div>
+ </div>`;
+ document.querySelectorAll("[data-rule]").forEach(b=>b.onclick=()=>{
+  const id=b.dataset.rule;choices[id]=b.dataset.value;
+  document.querySelectorAll(`[data-rule="${id}"]`).forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");
+ });
+ submitButton("submitFirewall",()=>{
+  if(rules.every(r=>choices[r.id]===r.correct)){
+   complete("Firewall rules applied successfully.","A firewall filters network traffic according to security rules. Required services should remain accessible while suspicious or unrequested traffic is blocked.");
+  }else{
+   const count=rules.filter(r=>choices[r.id]===r.correct).length;
+   incorrect(`The firewall configuration is not secure or complete. ${count} of 4 rules currently match the required policy. Review the purpose of each connection.`);
+  }
+ });
+}
+
+/* STAGE 9: MESSAGE RECONSTRUCTION */
+function renderAssembly(){
+ const words=["Hello,","Earth.","Can","you","hear","us?"];
+ let order=[2,5,0,4,1,3];
+ $("sceneContent").innerHTML=`
+ <div style="width:100%;text-align:center">
+  <div style="font-size:clamp(45px,7vw,85px)">📡</div>
+  <div style="color:var(--cyan);font-weight:bold;letter-spacing:2px">INCOMING MESSAGE FRAGMENTS</div>
+  <div id="wordList" style="display:grid;grid-template-columns:repeat(3,minmax(100px,160px));justify-content:center;gap:14px;margin-top:25px"></div>
+ </div>`;
+ function draw(){
+  $("wordList").innerHTML=order.map((id,i)=>`
+   <div class="dhcp-card" style="display:block;text-align:center">
+    <strong>${words[id]}</strong><div style="margin-top:10px">
+    <button data-left="${i}" ${i===0?"disabled":""}>←</button>
+    <button data-right="${i}" ${i===5?"disabled":""}>→</button></div>
+   </div>`).join("");
+  $("wordList").querySelectorAll("[data-left]").forEach(b=>b.onclick=()=>swap(+b.dataset.left,+b.dataset.left-1));
+  $("wordList").querySelectorAll("[data-right]").forEach(b=>b.onclick=()=>swap(+b.dataset.right,+b.dataset.right+1));
+ }
+ function swap(a,b){
+  if(b<0||b>=6)return;
+  [order[a],order[b]]=[order[b],order[a]];draw();
+ }
+ submitButton("submitMessage",()=>{
+  if(order.join(",")==="0,1,2,3,4,5"){
+   $("sceneContent").innerHTML='<div class="end-title">"Hello, Earth. Can you hear us?"<div style="font-size:85px;margin-top:25px">🌍</div></div>';
+   complete("The original message has been reconstructed.","Reliable transport protocols can ensure data is delivered in the correct order, even when segments arrive at different times.");
+  }else incorrect("The message fragments are still out of order. Rearrange them and try again.");
+ });
+ draw();
+}
+</script>
+</body>
+</html>
